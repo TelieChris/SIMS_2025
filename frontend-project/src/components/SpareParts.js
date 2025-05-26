@@ -180,10 +180,10 @@ const SpareParts = () => {
                                                         {part.quantity}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        ${typeof part.unit_price === 'number' ? part.unit_price.toFixed(2) : parseFloat(part.unit_price).toFixed(2)}
+                                                        Frw{typeof part.unit_price === 'number' ? part.unit_price.toFixed(2) : parseFloat(part.unit_price).toFixed(2)}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        ${typeof part.total_price === 'number' ? part.total_price.toFixed(2) : parseFloat(part.total_price).toFixed(2)}
+                                                        Frw{typeof part.total_price === 'number' ? part.total_price.toFixed(2) : parseFloat(part.total_price).toFixed(2)}
                                                     </td>
                                                 </tr>
                                             ))}
