@@ -179,10 +179,10 @@ const SpareParts: React.FC = () => {
                                                         {part.quantity}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        ${part.unit_price.toFixed(2)}
+                                                        Frw{part.unit_price.toFixed(2)}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        ${part.total_price.toFixed(2)}
+                                                        Frw{part.total_price.toFixed(2)}
                                                     </td>
                                                 </tr>
                                             ))}
