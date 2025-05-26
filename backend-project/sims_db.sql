@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS spare_parts (
     category VARCHAR(50) NOT NULL,
     quantity INT NOT NULL DEFAULT 0,
     unit_price DECIMAL(10, 2) NOT NULL,
-    total_price DECIMAL(10, 2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+    total_price DECIMAL(10, 2) GENERATED ALWAYS AS (quantity * unit_price),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS stock_out (
     spare_part_id INT NOT NULL,
     stock_out_quantity INT NOT NULL,
     stock_out_unit_price DECIMAL(10, 2) NOT NULL,
-    stock_out_total_price DECIMAL(10, 2) GENERATED ALWAYS AS (stock_out_quantity * stock_out_unit_price) STORED,
+    stock_out_total_price DECIMAL(10, 2) GENERATED ALWAYS AS (stock_out_quantity * stock_out_unit_price),
     stock_out_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (spare_part_id) REFERENCES spare_parts(id)
 );
