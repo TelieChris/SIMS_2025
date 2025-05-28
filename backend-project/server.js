@@ -47,6 +47,45 @@ const initializeDatabase = async () => {
         `);
         console.log('Users table created or already exists');
 
+        // Create spare_parts table
+        await db.promise().query(`
+            CREATE TABLE IF NOT EXISTS spare_parts (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(100) NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                quantity INT NOT NULL DEFAULT 0,
+                unit_price DECIMAL(10, 2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('Spare parts table created or already exists');
+
+        // Create stock_in table
+        await db.promise().query(`
+            CREATE TABLE IF NOT EXISTS stock_in (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                spare_part_id INT NOT NULL,
+                stock_in_quantity INT NOT NULL,
+                stock_in_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (spare_part_id) REFERENCES spare_parts(id)
+            )
+        `);
+        console.log('Stock in table created or already exists');
+
+        // Create stock_out table
+        await db.promise().query(`
+            CREATE TABLE IF NOT EXISTS stock_out (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                spare_part_id INT NOT NULL,
+                stock_out_quantity INT NOT NULL,
+                stock_out_unit_price DECIMAL(10, 2) NOT NULL,
+                stock_out_total_price DECIMAL(10, 2) NOT NULL,
+                stock_out_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (spare_part_id) REFERENCES spare_parts(id)
+            )
+        `);
+        console.log('Stock out table created or already exists');
+
         // Check if admin user exists
         const [users] = await db.promise().query('SELECT * FROM users WHERE username = ?', ['admin']);
         
@@ -254,16 +293,238 @@ app.post('/api/stock-in', authenticateToken, (req, res) => {
     });
 });
 
+app.get('/api/stock-in', authenticateToken, (req, res) => {
+    const query = `
+        SELECT 
+            s.id,
+            p.name,
+            p.category,
+            s.stock_in_quantity,
+            s.stock_in_date
+        FROM stock_in s
+        JOIN spare_parts p ON s.spare_part_id = p.id
+        ORDER BY s.stock_in_date DESC
+    `;
+    
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching stock in records:', err);
+            return res.status(500).json({ message: 'Server error' });
+        }
+        res.json(results);
+    });
+});
+
 // Stock Out routes
 app.post('/api/stock-out', authenticateToken, (req, res) => {
     const { spare_part_id, stock_out_quantity, stock_out_unit_price } = req.body;
-    const query = 'INSERT INTO stock_out (spare_part_id, stock_out_quantity, stock_out_unit_price) VALUES (?, ?, ?)';
+    const query = 'INSERT INTO stock_out (spare_part_id, stock_out_quantity, stock_out_unit_price, stock_out_total_price) VALUES (?, ?, ?, ?)';
+    const total_price = stock_out_quantity * stock_out_unit_price;
     
-    db.query(query, [spare_part_id, stock_out_quantity, stock_out_unit_price], (err, result) => {
+    db.query(query, [spare_part_id, stock_out_quantity, stock_out_unit_price, total_price], (err, result) => {
         if (err) {
             return res.status(500).json({ message: 'Server error' });
         }
         res.status(201).json({ id: result.insertId, message: 'Stock out recorded successfully' });
+    });
+});
+
+app.put('/api/stock-out/:id', authenticateToken, (req, res) => {
+    const { spare_part_id, stock_out_quantity, stock_out_unit_price } = req.body;
+    const total_price = stock_out_quantity * stock_out_unit_price;
+
+    // First get the current stock out record
+    const getStockOutQuery = 'SELECT spare_part_id, stock_out_quantity FROM stock_out WHERE id = ?';
+    
+    db.query(getStockOutQuery, [req.params.id], (err, results) => {
+        if (err) {
+            console.error('Error fetching stock out record:', err);
+            return res.status(500).json({ message: 'Server error' });
+        }
+        
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Stock out record not found' });
+        }
+
+        const oldStockOut = results[0];
+        
+        // Calculate the stock adjustment
+        // If old quantity was 5 and new is 3, we need to return 2 to stock
+        // If old quantity was 3 and new is 5, we need to remove 2 from stock
+        const stockAdjustment = oldStockOut.stock_out_quantity - stock_out_quantity;
+        
+        // Start a transaction
+        db.beginTransaction(err => {
+            if (err) {
+                console.error('Error starting transaction:', err);
+                return res.status(500).json({ message: 'Server error' });
+            }
+
+            // If the spare part is different, we need to update both spare parts' quantities
+            if (oldStockOut.spare_part_id !== spare_part_id) {
+                // Return the full quantity to the old spare part
+                const updateOldPartQuery = 'UPDATE spare_parts SET quantity = quantity + ? WHERE id = ?';
+                db.query(updateOldPartQuery, [oldStockOut.stock_out_quantity, oldStockOut.spare_part_id], (err) => {
+                    if (err) {
+                        console.error('Error updating old spare part quantity:', err);
+                        return db.rollback(() => {
+                            res.status(500).json({ message: 'Server error' });
+                        });
+                    }
+
+                    // Remove the full quantity from the new spare part
+                    const updateNewPartQuery = 'UPDATE spare_parts SET quantity = quantity - ? WHERE id = ?';
+                    db.query(updateNewPartQuery, [stock_out_quantity, spare_part_id], (err) => {
+                        if (err) {
+                            console.error('Error updating new spare part quantity:', err);
+                            return db.rollback(() => {
+                                res.status(500).json({ message: 'Server error' });
+                            });
+                        }
+                        updateStockOutRecord();
+                    });
+                });
+            } else {
+                // Same spare part, just update its quantity based on the difference
+                const updateStockQuery = 'UPDATE spare_parts SET quantity = quantity + ? WHERE id = ?';
+                db.query(updateStockQuery, [stockAdjustment, spare_part_id], (err) => {
+                    if (err) {
+                        console.error('Error updating spare part quantity:', err);
+                        return db.rollback(() => {
+                            res.status(500).json({ message: 'Server error' });
+                        });
+                    }
+                    updateStockOutRecord();
+                });
+            }
+
+            // Function to update the stock out record
+            function updateStockOutRecord() {
+                const updateStockOutQuery = `
+                    UPDATE stock_out 
+                    SET spare_part_id = ?, 
+                        stock_out_quantity = ?, 
+                        stock_out_unit_price = ?,
+                        stock_out_total_price = ?
+                    WHERE id = ?
+                `;
+                
+                db.query(updateStockOutQuery, 
+                    [spare_part_id, stock_out_quantity, stock_out_unit_price, total_price, req.params.id], 
+                    (err) => {
+                        if (err) {
+                            console.error('Error updating stock out record:', err);
+                            return db.rollback(() => {
+                                res.status(500).json({ message: 'Server error' });
+                            });
+                        }
+
+                        // Commit the transaction
+                        db.commit(err => {
+                            if (err) {
+                                console.error('Error committing transaction:', err);
+                                return db.rollback(() => {
+                                    res.status(500).json({ message: 'Server error' });
+                                });
+                            }
+                            res.json({ 
+                                message: 'Stock out record updated successfully',
+                                stockAdjustment,
+                                oldSparePartId: oldStockOut.spare_part_id,
+                                newSparePartId: spare_part_id
+                            });
+                        });
+                    }
+                );
+            }
+        });
+    });
+});
+
+app.delete('/api/stock-out/:id', authenticateToken, (req, res) => {
+    // First get the stock out record to know the quantity to restore
+    const getStockOutQuery = 'SELECT spare_part_id, stock_out_quantity FROM stock_out WHERE id = ?';
+    
+    db.query(getStockOutQuery, [req.params.id], (err, results) => {
+        if (err) {
+            console.error('Error fetching stock out record:', err);
+            return res.status(500).json({ message: 'Server error' });
+        }
+        
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Stock out record not found' });
+        }
+
+        const stockOut = results[0];
+
+        // Start a transaction to ensure both operations succeed or fail together
+        db.beginTransaction(err => {
+            if (err) {
+                console.error('Error starting transaction:', err);
+                return res.status(500).json({ message: 'Server error' });
+            }
+
+            // Update the spare part quantity
+            const updateStockQuery = 'UPDATE spare_parts SET quantity = quantity + ? WHERE id = ?';
+            db.query(updateStockQuery, [stockOut.stock_out_quantity, stockOut.spare_part_id], (err, updateResult) => {
+                if (err) {
+                    console.error('Error updating spare part quantity:', err);
+                    return db.rollback(() => {
+                        res.status(500).json({ message: 'Server error' });
+                    });
+                }
+
+                // Delete the stock out record
+                const deleteQuery = 'DELETE FROM stock_out WHERE id = ?';
+                db.query(deleteQuery, [req.params.id], (err, deleteResult) => {
+                    if (err) {
+                        console.error('Error deleting stock out record:', err);
+                        return db.rollback(() => {
+                            res.status(500).json({ message: 'Server error' });
+                        });
+                    }
+
+                    // Commit the transaction
+                    db.commit(err => {
+                        if (err) {
+                            console.error('Error committing transaction:', err);
+                            return db.rollback(() => {
+                                res.status(500).json({ message: 'Server error' });
+                            });
+                        }
+                        res.json({ 
+                            message: 'Stock out record deleted and stock quantity updated successfully',
+                            updatedQuantity: stockOut.stock_out_quantity
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
+app.get('/api/stock-out', authenticateToken, (req, res) => {
+    const query = `
+        SELECT 
+            s.id,
+            s.spare_part_id,
+            p.name,
+            p.category,
+            s.stock_out_quantity,
+            s.stock_out_unit_price,
+            s.stock_out_total_price,
+            s.stock_out_date
+        FROM stock_out s
+        JOIN spare_parts p ON s.spare_part_id = p.id
+        ORDER BY s.stock_out_date DESC
+    `;
+    
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching stock out records:', err);
+            return res.status(500).json({ message: 'Server error' });
+        }
+        res.json(results);
     });
 });
 

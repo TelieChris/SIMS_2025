@@ -7,9 +7,12 @@ const StockIn = () => {
     const [quantity, setQuantity] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [stockInRecords, setStockInRecords] = useState([]);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         fetchSpareParts();
+        fetchStockInRecords();
     }, []);
 
     const fetchSpareParts = async () => {
@@ -21,6 +24,22 @@ const StockIn = () => {
             setSpareParts(response.data);
         } catch (err) {
             setError('Failed to fetch spare parts');
+        }
+    };
+
+    const fetchStockInRecords = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+            const response = await axios.get('http://localhost:5000/api/stock-in', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setStockInRecords(response.data);
+            setError('');
+        } catch (err) {
+            setError('Failed to fetch stock in records');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -38,6 +57,7 @@ const StockIn = () => {
             setSelectedPart('');
             setQuantity('');
             fetchSpareParts();
+            fetchStockInRecords();
         } catch (err) {
             setError('Failed to record stock in');
         }
@@ -103,6 +123,64 @@ const StockIn = () => {
                             </button>
                         </div>
                     </form>
+                </div>
+
+                <div className="mt-8 bg-white shadow rounded-lg p-6">
+                    <h2 className="text-lg font-medium text-gray-900 mb-4">Stock In Records</h2>
+                    {loading ? (
+                        <div className="text-center py-4">
+                            <p className="text-gray-500">Loading...</p>
+                        </div>
+                    ) : stockInRecords.length === 0 ? (
+                        <div className="text-center py-4">
+                            <p className="text-gray-500">No stock in records found.</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col">
+                            <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                                <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                                    <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Spare Part
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Category
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Quantity
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Date
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {stockInRecords.map((record) => (
+                                                    <tr key={record.id}>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                            {record.name}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                            {record.category}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                            {record.stock_in_quantity}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                            {new Date(record.stock_in_date).toLocaleDateString()}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
