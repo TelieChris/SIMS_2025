@@ -51,7 +51,7 @@ Create a `.env` file in the backend directory with the following variables:
 DB_HOST=localhost
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
-DB_NAME=sims_db
+DB_NAME=sims
 JWT_SECRET=your_jwt_secret
 PORT=5000
 ```

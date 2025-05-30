@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS sims_db;
-USE sims_db;
+CREATE DATABASE IF NOT EXISTS sims;
+USE sims;
 
 CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -57,6 +57,3 @@ BEGIN
     WHERE id = NEW.spare_part_id;
 END //
 DELIMITER ;
-
--- Insert default admin user (password: Admin@123)
-INSERT INTO users (username, password) VALUES ('admin', '$2a$10$XFE/UQEe6c5Qe4hqxKs5B.4q7wQHGZHEP8HKB3UVDgJVGg5hZHVwO'); 

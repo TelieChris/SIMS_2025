@@ -16,25 +16,27 @@ const db = mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',  // Default password for development
-    database: process.env.DB_NAME || 'sims_db'
+    database: process.env.DB_NAME || 'sims',
+    port: process.env.DB_PORT || 33066,
 });
 
 console.log('Attempting database connection with:', {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
-    database: process.env.DB_NAME || 'sims_db'
+    database: process.env.DB_NAME || 'sims',
+    port: process.env.DB_PORT || 33066,
 });
 
 // Function to initialize database
 const initializeDatabase = async () => {
     try {
         // First, create the database if it doesn't exist
-        await db.promise().query('CREATE DATABASE IF NOT EXISTS sims_db');
+        await db.promise().query('CREATE DATABASE IF NOT EXISTS sims');
         console.log('Database created or already exists');
 
         // Use the database
-        await db.promise().query('USE sims_db');
-        console.log('Using sims_db database');
+        await db.promise().query('USE sims');
+        console.log('Using sims database');
 
         // Create users table
         await db.promise().query(`
@@ -200,23 +202,7 @@ app.post('/api/register', async (req, res) => {
                 message: 'Username must be 3-20 characters long and contain only letters and numbers' 
             });
         }
-
-        // Validate password strength
-        if (password.length < 8) {
-            return res.status(400).json({ message: 'Password must be at least 8 characters long' });
-        }
-        if (!/[A-Z]/.test(password)) {
-            return res.status(400).json({ message: 'Password must contain at least one uppercase letter' });
-        }
-        if (!/[a-z]/.test(password)) {
-            return res.status(400).json({ message: 'Password must contain at least one lowercase letter' });
-        }
-        if (!/[0-9]/.test(password)) {
-            return res.status(400).json({ message: 'Password must contain at least one number' });
-        }
-        if (!/[!@#$%^&*]/.test(password)) {
-            return res.status(400).json({ message: 'Password must contain at least one special character (!@#$%^&*)' });
-        }
+  
 
         // Check if passwords match
         if (password !== confirmPassword) {
