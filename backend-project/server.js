@@ -17,14 +17,12 @@ const db = mysql.createConnection({
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',  // Default password for development
     database: process.env.DB_NAME || 'sims',
-    port: process.env.DB_PORT || 33066,
 });
 
 console.log('Attempting database connection with:', {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     database: process.env.DB_NAME || 'sims',
-    port: process.env.DB_PORT || 33066,
 });
 
 // Function to initialize database
@@ -93,12 +91,12 @@ const initializeDatabase = async () => {
         
         if (users.length === 0) {
             // Create default admin user if it doesn't exist
-            const hashedPassword = await bcrypt.hash('Admin@123', 10);
+            const hashedPassword = await bcrypt.hash('admin123', 10);
             await db.promise().query(
                 'INSERT INTO users (username, password) VALUES (?, ?)',
                 ['admin', hashedPassword]
             );
-            console.log('Default admin user created');
+            console.log('Default admin user created username: admin and password: admin123');
         } else {
             console.log('Admin user already exists');
         }
