@@ -17,14 +17,12 @@ const db = mysql.createConnection({
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',  // Default password for development
     database: process.env.DB_NAME || 'sims',
-    port: process.env.DB_PORT || 33066,
 });
 
 console.log('Attempting database connection with:', {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     database: process.env.DB_NAME || 'sims',
-    port: process.env.DB_PORT || 33066,
 });
 
 // Function to initialize database
