@@ -311,10 +311,10 @@ const StockOut = () => {
                                                             {record.stock_out_quantity}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            ${parseFloat(record.stock_out_unit_price).toFixed(2)}
+                                                            Frw{parseFloat(record.stock_out_unit_price).toFixed(2)}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            ${parseFloat(record.stock_out_total_price).toFixed(2)}
+                                                            Frw{parseFloat(record.stock_out_total_price).toFixed(2)}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                             {new Date(record.stock_out_date).toLocaleDateString()}
